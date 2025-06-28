@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * User Factory - Generates fake user data for testing
+ * File: /mnt/c/Users/malia/OneDrive/Desktop/fyp/backend/database/factories/UserFactory.php
+ */
+
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -28,6 +33,8 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'phone' => fake()->phoneNumber(),
+            'role' => 'user',
             'remember_token' => Str::random(10),
         ];
     }
@@ -39,6 +46,16 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * Indicate that the user should be an admin.
+     */
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'admin',
         ]);
     }
 }
