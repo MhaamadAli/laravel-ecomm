@@ -11,9 +11,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\CartItem;
+use App\Mail\OrderConfirmation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
@@ -167,9 +169,17 @@ class OrderController extends Controller
                 // Load order with relationships
                 $order->load(['orderItems.product.category', 'user']);
 
-                // TODO: Send order confirmation email
-                // This would be implemented with Laravel Mail
-                // Mail::to($user->email)->send(new OrderConfirmation($order));
+                // Send order confirmation email
+                try {
+                    Mail::to($user->email)->send(new OrderConfirmation($order));
+                } catch (\Exception $e) {
+                    // Log email failure but don't fail the order creation
+                    \Log::warning('Failed to send order confirmation email', [
+                        'order_id' => $order->id,
+                        'user_email' => $user->email,
+                        'error' => $e->getMessage()
+                    ]);
+                }
 
                 return response()->json([
                     'message' => 'Order created successfully',

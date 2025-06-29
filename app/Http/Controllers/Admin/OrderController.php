@@ -19,8 +19,82 @@ use Carbon\Carbon;
 class OrderController extends Controller
 {
     /**
-     * Get all orders for admin management
-     * GET /api/admin/orders
+     * @OA\Get(
+     *     path="/api/admin/orders",
+     *     summary="Get all orders for admin",
+     *     description="Retrieve all orders with filtering, searching, and pagination for admin management",
+     *     operationId="getAdminOrders",
+     *     tags={"Admin - Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="status",
+     *         in="query",
+     *         description="Filter by order status",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"pending", "processing", "shipped", "delivered", "cancelled"}, example="pending")
+     *     ),
+     *     @OA\Parameter(
+     *         name="user_id",
+     *         in="query",
+     *         description="Filter by user ID",
+     *         required=false,
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Parameter(
+     *         name="search",
+     *         in="query",
+     *         description="Search by order number, user name, or email",
+     *         required=false,
+     *         @OA\Schema(type="string", example="ORD-2023")
+     *     ),
+     *     @OA\Parameter(
+     *         name="date_from",
+     *         in="query",
+     *         description="Filter orders from date",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date", example="2023-01-01")
+     *     ),
+     *     @OA\Parameter(
+     *         name="date_to",
+     *         in="query",
+     *         description="Filter orders to date",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date", example="2023-12-31")
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Items per page",
+     *         required=false,
+     *         @OA\Schema(type="integer", minimum=1, maximum=100, example=20)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Orders retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array",
+     *                 @OA\Items(
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="order_number", type="string", example="ORD-2023-001"),
+     *                     @OA\Property(property="status", type="string", example="pending"),
+     *                     @OA\Property(property="total_amount", type="number", format="float", example=299.98),
+     *                     @OA\Property(property="created_at", type="string", format="date-time"),
+     *                     @OA\Property(property="user", type="object",
+     *                         @OA\Property(property="id", type="integer", example=1),
+     *                         @OA\Property(property="name", type="string", example="John Doe"),
+     *                         @OA\Property(property="email", type="string", example="john@example.com")
+     *                     )
+     *                 )
+     *             ),
+     *             @OA\Property(property="statistics", type="object",
+     *                 @OA\Property(property="total_orders", type="integer", example=150),
+     *                 @OA\Property(property="total_revenue", type="number", format="float", example=15000.50)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required")
+     * )
      */
     public function index(Request $request)
     {
@@ -131,8 +205,49 @@ class OrderController extends Controller
     }
 
     /**
-     * Get single order details
-     * GET /api/admin/orders/{orderNumber}
+     * @OA\Get(
+     *     path="/api/admin/orders/{orderNumber}",
+     *     summary="Get single order for admin",
+     *     description="Get detailed order information for admin management",
+     *     operationId="getAdminOrder",
+     *     tags={"Admin - Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="orderNumber",
+     *         in="path",
+     *         description="Order number",
+     *         required=true,
+     *         @OA\Schema(type="string", example="ORD-2023-001")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Order retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="order_number", type="string", example="ORD-2023-001"),
+     *                 @OA\Property(property="status", type="string", example="pending"),
+     *                 @OA\Property(property="total_amount", type="number", format="float", example=299.98),
+     *                 @OA\Property(property="user", type="object",
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="name", type="string", example="John Doe"),
+     *                     @OA\Property(property="email", type="string", example="john@example.com")
+     *                 ),
+     *                 @OA\Property(property="items", type="array",
+     *                     @OA\Items(
+     *                         @OA\Property(property="id", type="integer", example=1),
+     *                         @OA\Property(property="quantity", type="integer", example=2),
+     *                         @OA\Property(property="price", type="number", format="float", example=99.99),
+     *                         @OA\Property(property="product", type="object")
+     *                     )
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required"),
+     *     @OA\Response(response=404, description="Order not found")
+     * )
      */
     public function show($orderNumber)
     {
@@ -194,8 +309,46 @@ class OrderController extends Controller
     }
 
     /**
-     * Update order status
-     * PUT /api/admin/orders/{orderNumber}
+     * @OA\Put(
+     *     path="/api/admin/orders/{orderNumber}",
+     *     summary="Update order status",
+     *     description="Update order status and add admin notes",
+     *     operationId="updateAdminOrder",
+     *     tags={"Admin - Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="orderNumber",
+     *         in="path",
+     *         description="Order number to update",
+     *         required=true,
+     *         @OA\Schema(type="string", example="ORD-2023-001")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"status"},
+     *             @OA\Property(property="status", type="string", enum={"pending", "processing", "shipped", "delivered", "cancelled"}, example="processing"),
+     *             @OA\Property(property="admin_notes", type="string", maxLength=1000, example="Order processed and ready for shipping")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Order status updated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Order status updated successfully"),
+     *             @OA\Property(property="order", type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="order_number", type="string", example="ORD-2023-001"),
+     *                 @OA\Property(property="status", type="string", example="processing"),
+     *                 @OA\Property(property="previous_status", type="string", example="pending")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required"),
+     *     @OA\Response(response=404, description="Order not found"),
+     *     @OA\Response(response=422, description="Invalid status transition")
+     * )
      */
     public function update($orderNumber, Request $request)
     {
@@ -276,8 +429,44 @@ class OrderController extends Controller
     }
 
     /**
-     * Get order statistics for admin dashboard
-     * GET /api/admin/orders/stats
+     * @OA\Get(
+     *     path="/api/admin/orders/stats",
+     *     summary="Get order statistics",
+     *     description="Retrieve comprehensive order statistics for admin dashboard",
+     *     operationId="getOrderStats",
+     *     tags={"Admin - Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="period",
+     *         in="query",
+     *         description="Time period for statistics",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"today", "week", "month", "quarter", "year"}, example="month")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Order statistics retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="totals", type="object",
+     *                     @OA\Property(property="orders", type="integer", example=150),
+     *                     @OA\Property(property="revenue", type="number", format="float", example=15000.50),
+     *                     @OA\Property(property="customers", type="integer", example=75),
+     *                     @OA\Property(property="average_order_value", type="number", format="float", example=100.00)
+     *                 ),
+     *                 @OA\Property(property="by_status", type="object",
+     *                     @OA\Property(property="pending", type="integer", example=10),
+     *                     @OA\Property(property="processing", type="integer", example=25),
+     *                     @OA\Property(property="shipped", type="integer", example=20),
+     *                     @OA\Property(property="delivered", type="integer", example=85),
+     *                     @OA\Property(property="cancelled", type="integer", example=10)
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required")
+     * )
      */
     public function stats(Request $request)
     {
@@ -312,8 +501,34 @@ class OrderController extends Controller
     }
 
     /**
-     * Bulk update order statuses
-     * POST /api/admin/orders/bulk-update
+     * @OA\Post(
+     *     path="/api/admin/orders/bulk-update",
+     *     summary="Bulk update order statuses",
+     *     description="Update status for multiple orders at once",
+     *     operationId="bulkUpdateOrders",
+     *     tags={"Admin - Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"order_ids", "status"},
+     *             @OA\Property(property="order_ids", type="array", minItems=1, @OA\Items(type="integer", example=1)),
+     *             @OA\Property(property="status", type="string", enum={"processing", "shipped", "delivered"}, example="processing")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Bulk update completed successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Bulk status update completed successfully"),
+     *             @OA\Property(property="updated_count", type="integer", example=5),
+     *             @OA\Property(property="new_status", type="string", example="processing")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required"),
+     *     @OA\Response(response=422, description="Validation error or invalid status transitions")
+     * )
      */
     public function bulkUpdate(Request $request)
     {

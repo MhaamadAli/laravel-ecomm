@@ -18,8 +18,66 @@ use Carbon\Carbon;
 class UserController extends Controller
 {
     /**
-     * Get all users for admin management
-     * GET /api/admin/users
+     * @OA\Get(
+     *     path="/api/admin/users",
+     *     summary="Get all users for admin",
+     *     description="Retrieve all users with filtering, searching, and pagination for admin management",
+     *     operationId="getAdminUsers",
+     *     tags={"Admin - Users"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="role",
+     *         in="query",
+     *         description="Filter by user role",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"user", "admin", "all"}, example="user")
+     *     ),
+     *     @OA\Parameter(
+     *         name="status",
+     *         in="query",
+     *         description="Filter by verification status",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"active", "inactive", "all"}, example="active")
+     *     ),
+     *     @OA\Parameter(
+     *         name="search",
+     *         in="query",
+     *         description="Search by name or email",
+     *         required=false,
+     *         @OA\Schema(type="string", example="john")
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         description="Items per page",
+     *         required=false,
+     *         @OA\Schema(type="integer", minimum=1, maximum=100, example=20)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Users retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array",
+     *                 @OA\Items(
+     *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="name", type="string", example="John Doe"),
+     *                     @OA\Property(property="email", type="string", example="john@example.com"),
+     *                     @OA\Property(property="role", type="string", example="user"),
+     *                     @OA\Property(property="is_verified", type="boolean", example=true),
+     *                     @OA\Property(property="orders_count", type="integer", example=5),
+     *                     @OA\Property(property="total_spent", type="number", format="float", example=299.99),
+     *                     @OA\Property(property="created_at", type="string", format="date-time")
+     *                 )
+     *             ),
+     *             @OA\Property(property="statistics", type="object",
+     *                 @OA\Property(property="total_users", type="integer", example=150),
+     *                 @OA\Property(property="verified_users", type="integer", example=120)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required")
+     * )
      */
     public function index(Request $request)
     {
@@ -130,8 +188,44 @@ class UserController extends Controller
     }
 
     /**
-     * Get single user details
-     * GET /api/admin/users/{id}
+     * @OA\Get(
+     *     path="/api/admin/users/{id}",
+     *     summary="Get single user for admin",
+     *     description="Get detailed user information including order history and statistics",
+     *     operationId="getAdminUser",
+     *     tags={"Admin - Users"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="User ID",
+     *         required=true,
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="User retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="name", type="string", example="John Doe"),
+     *                 @OA\Property(property="email", type="string", example="john@example.com"),
+     *                 @OA\Property(property="role", type="string", example="user"),
+     *                 @OA\Property(property="is_verified", type="boolean", example=true),
+     *                 @OA\Property(property="statistics", type="object",
+     *                     @OA\Property(property="orders_count", type="integer", example=5),
+     *                     @OA\Property(property="total_spent", type="number", format="float", example=299.99),
+     *                     @OA\Property(property="account_age_days", type="integer", example=365)
+     *                 ),
+     *                 @OA\Property(property="recent_orders", type="array", @OA\Items(type="object")),
+     *                 @OA\Property(property="recent_reviews", type="array", @OA\Items(type="object"))
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required"),
+     *     @OA\Response(response=404, description="User not found")
+     * )
      */
     public function show($id)
     {
@@ -214,8 +308,48 @@ class UserController extends Controller
     }
 
     /**
-     * Update user information
-     * PUT /api/admin/users/{id}
+     * @OA\Put(
+     *     path="/api/admin/users/{id}",
+     *     summary="Update user information",
+     *     description="Update user details including role and verification status",
+     *     operationId="updateAdminUser",
+     *     tags={"Admin - Users"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="User ID to update",
+     *         required=true,
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\RequestBody(
+     *         required=false,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="name", type="string", maxLength=255, example="John Smith"),
+     *             @OA\Property(property="email", type="string", format="email", example="johnsmith@example.com"),
+     *             @OA\Property(property="role", type="string", enum={"user", "admin"}, example="user"),
+     *             @OA\Property(property="password", type="string", minLength=8, example="newpassword123"),
+     *             @OA\Property(property="email_verified_at", type="string", format="date-time", nullable=true)
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="User updated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="User updated successfully"),
+     *             @OA\Property(property="user", type="object",
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="name", type="string", example="John Smith"),
+     *                 @OA\Property(property="email", type="string", example="johnsmith@example.com"),
+     *                 @OA\Property(property="role", type="string", example="user")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required"),
+     *     @OA\Response(response=404, description="User not found"),
+     *     @OA\Response(response=422, description="Validation error or self-demotion attempt")
+     * )
      */
     public function update($id, Request $request)
     {
@@ -281,8 +415,41 @@ class UserController extends Controller
     }
 
     /**
-     * Delete/deactivate user
-     * DELETE /api/admin/users/{id}
+     * @OA\Delete(
+     *     path="/api/admin/users/{id}",
+     *     summary="Delete or deactivate user",
+     *     description="Delete user if no orders exist, otherwise deactivate account",
+     *     operationId="deleteAdminUser",
+     *     tags={"Admin - Users"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="User ID to delete",
+     *         required=true,
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="User deleted or deactivated successfully",
+     *         @OA\JsonContent(
+     *             oneOf={
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="User deleted successfully"),
+     *                     @OA\Property(property="action", type="string", example="deleted")
+     *                 ),
+     *                 @OA\Schema(
+     *                     @OA\Property(property="message", type="string", example="User deactivated successfully (has existing orders)"),
+     *                     @OA\Property(property="action", type="string", example="deactivated")
+     *                 )
+     *             }
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required"),
+     *     @OA\Response(response=404, description="User not found"),
+     *     @OA\Response(response=422, description="Cannot delete own account")
+     * )
      */
     public function destroy($id, Request $request)
     {
@@ -329,8 +496,33 @@ class UserController extends Controller
     }
 
     /**
-     * Get user statistics for admin dashboard
-     * GET /api/admin/users/stats
+     * @OA\Get(
+     *     path="/api/admin/users/stats",
+     *     summary="Get user statistics",
+     *     description="Retrieve comprehensive user statistics for admin dashboard",
+     *     operationId="getUserStats",
+     *     tags={"Admin - Users"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(
+     *         response=200,
+     *         description="User statistics retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="total_users", type="integer", example=150),
+     *                 @OA\Property(property="admin_users", type="integer", example=5),
+     *                 @OA\Property(property="regular_users", type="integer", example=145),
+     *                 @OA\Property(property="verified_users", type="integer", example=120),
+     *                 @OA\Property(property="unverified_users", type="integer", example=30),
+     *                 @OA\Property(property="users_with_orders", type="integer", example=75),
+     *                 @OA\Property(property="users_without_orders", type="integer", example=75),
+     *                 @OA\Property(property="new_users_this_month", type="integer", example=15),
+     *                 @OA\Property(property="new_users_this_week", type="integer", example=3)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Unauthorized - Admin access required")
+     * )
      */
     public function stats(Request $request)
     {

@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Api\FileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -104,6 +105,13 @@ Route::middleware('sanctum.auth')->group(function () {
     Route::post('/products/{productId}/reviews', [ReviewController::class, 'store']);
     Route::put('/reviews/{id}', [ReviewController::class, 'update']);
     Route::delete('/reviews/{id}', [ReviewController::class, 'destroy']);
+    
+    // File Upload Routes
+    Route::prefix('upload')->group(function () {
+        Route::post('/image', [FileController::class, 'uploadImage']);
+        Route::post('/images/multiple', [FileController::class, 'uploadMultipleImages']);
+        Route::delete('/image', [FileController::class, 'deleteImage']);
+    });
 });
 
 // Admin Routes (Require Admin Role)

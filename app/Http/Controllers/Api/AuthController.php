@@ -9,10 +9,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Mail\PasswordResetNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password as PasswordFacade;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
 
@@ -523,6 +526,169 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Password change failed',
                 'error' => 'Something went wrong during password change'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/auth/forgot-password",
+     *     summary="Send password reset email",
+     *     description="Send a password reset link to the user's email address",
+     *     operationId="forgotPassword",
+     *     tags={"Authentication"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"email"},
+     *             @OA\Property(property="email", type="string", format="email", example="john@example.com")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Password reset email sent successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Password reset link has been sent to your email")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error or email not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="We can't find a user with that email address"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function forgotPassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => ['required', 'email', 'exists:users,email'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $user = User::where('email', $request->email)->first();
+
+            if (!$user) {
+                return response()->json([
+                    'message' => "We can't find a user with that email address"
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            // Generate password reset token
+            $token = PasswordFacade::createToken($user);
+            
+            // Create reset URL - using backend web route for demo
+            $resetUrl = url('/reset-password?token=' . $token . '&email=' . urlencode($user->email));
+
+            // Send password reset email
+            Mail::to($user->email)->send(new PasswordResetNotification($user, $resetUrl));
+
+            return response()->json([
+                'message' => 'Password reset link has been sent to your email'
+            ], Response::HTTP_OK);
+
+        } catch (\Exception $e) {
+            \Log::error('Password reset email failed: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to send password reset email',
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/auth/reset-password",
+     *     summary="Reset user password",
+     *     description="Reset user password using the token sent via email",
+     *     operationId="resetPassword",
+     *     tags={"Authentication"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"email", "password", "password_confirmation", "token"},
+     *             @OA\Property(property="email", type="string", format="email", example="john@example.com"),
+     *             @OA\Property(property="password", type="string", format="password", minLength=8, example="newpassword123"),
+     *             @OA\Property(property="password_confirmation", type="string", format="password", example="newpassword123"),
+     *             @OA\Property(property="token", type="string", example="reset_token_here")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Password reset successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Password has been reset successfully")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error or invalid token",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Invalid token or expired link"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function resetPassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => ['required', 'email', 'exists:users,email'],
+            'password' => ['required', 'confirmed', Password::min(8)],
+            'token' => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            // Attempt to reset the password
+            $status = PasswordFacade::reset(
+                $request->only('email', 'password', 'password_confirmation', 'token'),
+                function ($user, $password) {
+                    $user->forceFill([
+                        'password' => Hash::make($password)
+                    ])->save();
+
+                    // Revoke all existing tokens for security
+                    $user->tokens()->delete();
+                }
+            );
+
+            if ($status === PasswordFacade::PASSWORD_RESET) {
+                return response()->json([
+                    'message' => 'Password has been reset successfully'
+                ], Response::HTTP_OK);
+            }
+
+            // Handle different error cases
+            $message = match($status) {
+                PasswordFacade::INVALID_TOKEN => 'Invalid token or expired link',
+                PasswordFacade::INVALID_USER => 'Invalid user',
+                default => 'Failed to reset password'
+            };
+
+            return response()->json([
+                'message' => $message
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to reset password',
+                'error' => 'Something went wrong during password reset'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
